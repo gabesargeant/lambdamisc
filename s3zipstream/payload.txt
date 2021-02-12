@@ -1,0 +1,15 @@
+
+--cli-read-timeout needs to match the max exec of the lambda
+
+-- {
+  "src": "zip-test-source",
+  "dst": "zip-test-dest",
+  "zip":"2016 Census GCP All Geographies for AUST.zip"
+}
+
+base64 ecode that.
+
+
+ie,
+
+aws lambda invoke --function-name s3zipstream_01 --log-type Tail --payload eyJzcmMiOiAiemlwLXRlc3Qtc291cmNlIiwgImRzdCI6ICJ6aXAtdGVzdC1kZXN0IiwgInppcCI6IjIwMTYgQ2Vuc3VzIEdDUCBBbGwgR2VvZ3JhcGhpZXMgZm9yIEFVU1QuemlwIn0= out.txt --cli-read-timeout 600
