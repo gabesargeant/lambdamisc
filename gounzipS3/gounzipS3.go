@@ -1,10 +1,17 @@
 package main
 
 import (
+	"archive/zip"
 	"context"
+	"fmt"
+	"io"
+	"log"
+	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
@@ -14,25 +21,70 @@ type Event struct {
         dst string `json:"dst"`
         zip string `json:"zip"`
 }
+
+//Dependencies 
+type Dependencies struct {
+	session session.Session 
+}
+
 //HandleRequest - Main entry point for lambda
-func (d *Dependencies) HandleRequest(ctx context.Context, name event) (string, error) {
+func (d *Dependencies) HandleRequest(ctx context.Context, event Event) (string, error) {
 
-	src := event["src"]
-	dst := event["dst"]
-	zip := event["zip"]
+	src := event.src
+	dst := event.dst
+	zipFile := event.zip
+
+	file, err := os.Create(zipFile)
+	if(err != nil){
+		fmt.Println(err)
+	}
 
 
-        downloader := s3manager.NewDownloader(d.session)
+    downloader := s3manager.NewDownloader(&d.session)
+	_, err = downloader.Download(file, &s3.GetObjectInput{
+		Bucket: aws.String(src),
+		Key: aws.String(zipFile),
+	})
 
+	if err != nil{
+		fmt.Println("Error fetchin src file {} from bucket {}", zip, src);
+	}
 	
+	//Begin unzip and write of files and folders.
+
+	reader, err := zip.OpenReader(file.Name())
+	if err != nil{
+
+	}
+	defer reader.Close()
+	uploader := s3manager.NewUploader(&d.session)
+
+	uploader.Upload(&s3manager.UploadInput{})
+	// Iterate through the files in the archive
+	for _, f := range reader.File {
+		
+		rc, err := f.Open()
+		if err != nil {
+			log.Fatal(err)
+		}
+		
+
+
+		_, err = io.Copy(os.Stdout, rc, 68)
+		if err != nil {
+			log.Fatal(err)
+		}
+		rc.Close()
+		fmt.Println()
+	}
 
 }
 
 func main() {
 
 	d := Dependencies{
-		session: session.Must(session.NewSession()),
+		session: *session.New(),
 	}
-        //Dependency injection with pointer receivers!
+    //Dependency injection with the pointer receiver
 	lambda.Start(d.HandleRequest)
 }
