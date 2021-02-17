@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"os"
 
@@ -22,7 +21,7 @@ type Event struct {
         zip string `json:"zip"`
 }
 
-//Dependencies 
+//Dependencies session injection
 type Dependencies struct {
 	session session.Session 
 }
@@ -47,7 +46,7 @@ func (d *Dependencies) HandleRequest(ctx context.Context, event Event) (string, 
 	})
 
 	if err != nil{
-		fmt.Println("Error fetchin src file {} from bucket {}", zip, src);
+		fmt.Println("Error fetchin src file {} from bucket {}", zipFile, src);
 	}
 	
 	//Begin unzip and write of files and folders.
@@ -68,16 +67,19 @@ func (d *Dependencies) HandleRequest(ctx context.Context, event Event) (string, 
 			log.Fatal(err)
 		}
 		
-
-
-		_, err = io.Copy(os.Stdout, rc, 68)
+		uploader.Upload(&s3manager.UploadInput{
+			Bucket: aws.String(dst),
+			Key: aws.String(zipFile),
+			Body: rc,
+		})
+		
 		if err != nil {
 			log.Fatal(err)
 		}
 		rc.Close()
 		fmt.Println()
 	}
-
+	return "{\"Unziped\": true}", nil
 }
 
 func main() {
