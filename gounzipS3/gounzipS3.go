@@ -46,7 +46,7 @@ func (d *Dependencies) HandleRequest(ctx context.Context, event Event) (string, 
 	})
 
 	if err != nil{
-		fmt.Println("Error fetchin src file {} from bucket {}", zipFile, src);
+		fmt.Println("Error fetching src file {} from bucket {}", zipFile, src);
 	}
 	
 	//Begin unzip and write of files and folders.
