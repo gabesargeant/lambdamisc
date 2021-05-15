@@ -4,22 +4,31 @@ import json
 
 import requests
 
-def handler(event, context):
+def lambda_handler(event, context):
+    
+    requestObj = event['path']
     
     if os.environ.get('RUNMODE') == 'DEBUG':
         print('#### RUNMODE DEBUG -- PRINTING ENV VARIABLES')        
         print('')
         print(os.environ.get('BUCKETNAME'))
         print(os.environ.get('LRG_OBJ_EXP'))##3600 seconds
-        print(os.environ.get(LRG_OBJ_LIM_BYTES))
+        print(os.environ.get('LRG_OBJ_LIM_BYTES'))
 
         print('#### RUNMODE DEBUG -- PRINTING EVENT')
         print(event)
+        
 
-    if getObjectDirect() :
-        with open('FILE_NAME', 'wb') as f:
-            s3.download_fileobj('BUCKET_NAME', 'OBJECT_NAME', f)
-        else()
+    if getObjectDirect(requestObj) :
+        if os.environ.get('RUNMODE') == 'DEBUG':      
+            print("#### SMALL OBJECT ####")
+            print(requestObj)
+        
+        with open(requestObj, 'r') as f:
+            s3.download_fileobj(os.environ.get('BUCKETNAME'), requestObj, f)
+            
+    else:
+        generateSignedUrl("key")
 
 
     return {
@@ -28,16 +37,28 @@ def handler(event, context):
     }
 
 
-def getObjectDirect:
-    
-    s3 = boto3.client('s3')
-    response = s3.head_object(Bucket='bucketname', Key='keyname')
-    size = response['ContentLength']
+def getObjectDirect(key):
+    if os.environ.get('RUNMODE') == 'DEBUG':      
+        print("#### SMALL OBJECT ####")
+        print(key)
 
-    if size <= os.environ.get(LRG_OBJ_LIM_BYTES):
-        return true
+    s3 = boto3.client('s3')
+    response = s3.head_object(Bucket=os.environ.get('BUCKETNAME'), Key=key)
+    size = response['ContentLength']
+    if os.environ.get('RUNMODE') == 'DEBUG':      
+        print("#### OVJECT HEAD SIZE ####")
+        print("#### ", size, " ####")
+
+    if size <= int(os.environ.get('LRG_OBJ_LIM_BYTES')):
+        if os.environ.get('RUNMODE') == 'DEBUG':      
+            print("#### RETURN DIRECT OBJECT AS SIZE UNDER BYTES LIM")
+       
+        return True
     else:
-        return false ## generate a signed url.
+        if os.environ.get('RUNMODE') == 'DEBUG':      
+            print("#### RETURN S3 SIGNED URL AS SIZE OVER BYTES LIM")
+        return False ## generate a signed url.
+        
 
 
 
