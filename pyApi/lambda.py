@@ -16,7 +16,11 @@ def handler(event, context):
         print('#### RUNMODE DEBUG -- PRINTING EVENT')
         print(event)
 
-    getObjectDirect() 
+    if getObjectDirect() :
+        with open('FILE_NAME', 'wb') as f:
+            s3.download_fileobj('BUCKET_NAME', 'OBJECT_NAME', f)
+        else()
+
 
     return {
         'statusCode': 200,
