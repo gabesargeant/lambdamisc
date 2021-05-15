@@ -1,12 +1,14 @@
 import os
+from io import BytesIO
 import boto3
 import json
+import base64 
 
 import requests
 
 def lambda_handler(event, context):
     
-    requestObj = event['path']
+    print(json.dumps(event))
     
     if os.environ.get('RUNMODE') == 'DEBUG':
         print('#### RUNMODE DEBUG -- PRINTING ENV VARIABLES')        
@@ -16,16 +18,40 @@ def lambda_handler(event, context):
         print(os.environ.get('LRG_OBJ_LIM_BYTES'))
 
         print('#### RUNMODE DEBUG -- PRINTING EVENT')
-        print(event)
+        print(json.dumps(event))
         
-
+    requestObj = event['pathParameters']['proxy']
+    s3 = boto3.client('s3')
+     
     if getObjectDirect(requestObj) :
+        
+        #requestObj = "./" + requestObj
+        
         if os.environ.get('RUNMODE') == 'DEBUG':      
             print("#### SMALL OBJECT ####")
+            
             print(requestObj)
         
-        with open(requestObj, 'r') as f:
-            s3.download_fileobj(os.environ.get('BUCKETNAME'), requestObj, f)
+        
+        with BytesIO() as data:
+            s3.download_fileobj(os.environ.get('BUCKETNAME'), requestObj, data)
+            
+            data.seek(0)    # move back to the beginning after writing
+            return {
+                'headers': { "Content-Type": "text/csv" },
+                'statusCode': 200,
+                'body': base64.b64encode(data.read()).decode('utf-8'),
+                'isBase64Encoded': True
+            }
+       
+        # with open(requestObj, 'wb') as f:
+        #     s3.download_fileobj(os.environ.get('BUCKETNAME'), requestObj, f)
+        #     return {
+        #         'headers': { "Content-Type": "text/csv" },
+        #         'statusCode': 200,
+        #         'body': base64.b64encode(f).decode('utf-8'),
+        #         'isBase64Encoded': True
+        #     }
             
     else:
         generateSignedUrl("key")
