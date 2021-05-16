@@ -3,8 +3,12 @@ from io import BytesIO
 import boto3
 import json
 import base64 
-
 import requests
+from datetime import datetime
+
+#s3 boto object
+s3 = boto3.client('s3')
+
 
 def lambda_handler(event, context):
     
@@ -21,7 +25,15 @@ def lambda_handler(event, context):
         print(json.dumps(event))
         
     requestObj = event['pathParameters']['proxy']
-    s3 = boto3.client('s3')
+    
+    if len(requestObj) == 0:
+        return listKeyContents(requestObj)
+    
+    dir = requestObj[-1]   
+    if dir == "/":
+        #Notional Directory Key
+        return listKeyContents(requestObj)
+   
      
     if getObjectDirect(requestObj) :
         
@@ -44,33 +56,29 @@ def lambda_handler(event, context):
                 'isBase64Encoded': True
             }
        
-        # with open(requestObj, 'wb') as f:
-        #     s3.download_fileobj(os.environ.get('BUCKETNAME'), requestObj, f)
-        #     return {
-        #         'headers': { "Content-Type": "text/csv" },
-        #         'statusCode': 200,
-        #         'body': base64.b64encode(f).decode('utf-8'),
-        #         'isBase64Encoded': True
-        #     }
-            
     else:
-        generateSignedUrl("key")
+        
+        response = generateSignedUrl(requestObj)
+        
+        return {
+        'headers': { 'Location': response },
+        'statusCode': 302
+        }
+    
 
 
-    return {
-        'statusCode': 200,
-        'body': json.dumps('hello world')
-    }
 
 
 def getObjectDirect(key):
+    
     if os.environ.get('RUNMODE') == 'DEBUG':      
         print("#### SMALL OBJECT ####")
         print(key)
 
-    s3 = boto3.client('s3')
     response = s3.head_object(Bucket=os.environ.get('BUCKETNAME'), Key=key)
     size = response['ContentLength']
+    print('###head reasponse###')
+    print(response);
     if os.environ.get('RUNMODE') == 'DEBUG':      
         print("#### OVJECT HEAD SIZE ####")
         print("#### ", size, " ####")
@@ -84,22 +92,58 @@ def getObjectDirect(key):
         if os.environ.get('RUNMODE') == 'DEBUG':      
             print("#### RETURN S3 SIGNED URL AS SIZE OVER BYTES LIM")
         return False ## generate a signed url.
-        
-
-
-
+    
+    
 def generateSignedUrl(key):
-
-    client = boto3.client("s3")
-    try:
-        response = s3_client.generate_presigned_url('get_object',
-                                                    Params={'Bucket': os.environ.get('BUCKETNAME'),
-                                                            'Key': key},
-                                                    ExpiresIn=os.environ.get('LRG_OBJ_EXP'))
-    except ClientError as e:
-        logging.error(e)
-        return None
-
-    # The response contains the presigned URL
+    if os.environ.get('RUNMODE') == 'DEBUG':      
+        print("#### LARGE OBJECT ####")
+        print(key)
+  
+    response = s3.generate_presigned_url('get_object', Params={'Bucket': os.environ.get('BUCKETNAME'),'Key': key}, ExpiresIn=os.environ.get('LRG_OBJ_EXP'))
+    if os.environ.get('RUNMODE') == 'DEBUG':      
+        print("#### LARGE OBJECT SIGNED URL####")
+        print(response)
+    
     return response
 
+
+def listKeyContents(key):
+    
+    response = s3.list_objects_v2(
+    Bucket=os.environ.get('BUCKETNAME'),
+    Delimiter="/",
+    Prefix=key,
+    EncodingType='url',
+    FetchOwner=False)
+    
+    print("#### listKeyContents ### ")
+    print(response)
+    
+    rtn = extractKeys(response)
+    
+    s = {
+            'headers': { "Content-Type": "text/html" },
+            'statusCode': 200,
+            'body': json.dumps(rtn),
+            'isBase64Encoded': False
+        }
+    return s
+    
+
+def extractKeys(response):
+    
+    rtn = []
+    
+    if response['KeyCount'] == 0:
+        return rtn
+    
+    for k in response['Contents']:
+        d = {}
+        d['LastModified'] = k['LastModified'].strftime("%m/%d/%Y, %H:%M:%S")
+        d['Key'] = k['Key']
+        d['Size'] = k['Size']
+        rtn.append(d)
+    
+    return rtn
+        
+    
