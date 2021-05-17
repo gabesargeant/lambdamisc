@@ -34,9 +34,11 @@ def lambda_handler(event, context):
         return listKeyContents(requestObj)
         
     response = s3.head_object(Bucket=os.environ.get('BUCKETNAME'), Key=requestObj)
-    size = response['ContentLength']
     print('### head reasponse ###')
     print(response);
+    size = response['ContentLength']
+    content_type = response['ContentType']
+    
     if os.environ.get('RUNMODE') == 'DEBUG':      
         print("#### OVJECT HEAD SIZE ####")
         print("#### ", size, " ####")
@@ -53,7 +55,7 @@ def lambda_handler(event, context):
             
             data.seek(0)    # move back to the beginning after writing
             return {
-                'headers': { "Content-Type": "text/csv" },
+                'headers': { "Content-Type": content_type },
                 'statusCode': 200,
                 'body': base64.b64encode(data.read()).decode('utf-8'),
                 'isBase64Encoded': True
@@ -138,7 +140,7 @@ def listKeyContents(key):
    
     
     for x in rtn:
-        templateTop += "<tr><td>" + x['LastModified'] + "</td><td>" + str(x['Size']) + "</td><td><a href=\"" + rootpath + x['Key'] + "\">" + rootpath + x['Key'] + "</a></td></tr>"
+        templateTop += "<tr><td>" + x['LastModified'] + "</td><td>" + str(x['Size']) + "</td><td><a href=\"" + x['Key'] + "\">" + x['Key'] + "</a></td></tr>"
     
     templateTop += templateTail
     
@@ -152,13 +154,13 @@ def listKeyContents(key):
     
 
 def extractKeys(response, prefixes):
-    
+    rootpath = os.environ.get("ROOTPATH")     
     rtn = []
 
     for p in prefixes:
         d = {}
         d['LastModified'] = "---"
-        d['Key'] = p['Prefix']
+        d['Key'] = rootpath+p['Prefix']
         d['Size'] = "dir"
         rtn.append(d)
 
@@ -168,7 +170,7 @@ def extractKeys(response, prefixes):
     for k in response['Contents']:
         d = {}
         d['LastModified'] = k['LastModified'].strftime("%m/%d/%Y, %H:%M:%S")
-        d['Key'] = k['Key']
+        d['Key'] = rootpath+k['Key']
         d['Size'] = k['Size']
         rtn.append(d)
     
